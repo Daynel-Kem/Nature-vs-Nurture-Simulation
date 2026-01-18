@@ -9,17 +9,17 @@ AGE_HALF_LIFE = 40
 class WEALTH_RATE(Enum):
     LOW = 0.7
     MIDDLE = 1
-    HIGH = 1.3
+    HIGH = 1.6
 
 class ADJUSTMENT_FACTOR(Enum):
     LOW = 1.3
     MIDDLE = 1
-    HIGH = 0.7
+    HIGH = 0.5
 
 Wealth_Rate = {
     "Low": 0.7,
     "Middle": 1,
-    "High": 1.3
+    "High": 1.6
 }
 
 RISK_BANDS = {
@@ -98,7 +98,8 @@ class Agent:
     Identity: The agent's perception of itself. This is the main deciding factor when making decisions
     """
     def __init__(self, id: int):
-        self.name = names.get_full_name()
+        self.gender = "male" if random.random() > 0.5 else "female"
+        self.name = names.get_full_name(gender=self.gender)
         self.talent = random.random()
         self.wealth = random.choices(wealth_classes, weights=class_probability, k=1)[0]
         self.age = 0
@@ -117,18 +118,45 @@ class Agent:
         self.last_task_succeeded = False
         self.tasks_done = {}
         self.history = []
+        self.dropout_pressure = 0.0
+        # your coolness factor (how likely you are to interact with other people)
+        self.social_capital = random.uniform(0.1, 0.3) if self.wealth == "Low" else \
+                      random.uniform(0.3, 0.6) if self.wealth == "Middle" else \
+                      random.uniform(0.6, 0.9)
+
 
     def available_tasks(self, tasks):
+        """
+        Returns the list of tasks the agent can attempt.
+        - Low-class agents can attempt most tasks, with occasional access to higher-class tasks.
+        - Broke check relaxed for low-class to allow gambling their way up.
+        - High-class still protected by overconfidence rules elsewhere.
+        """
         available = []
         for task in tasks:
+            # Capital requirement
             if task.required_capital and task.required_capital > self.rewards:
-                continue
+                # Low-class agents allowed to attempt low/mid-reward tasks even if undercapitalized
+                if self.wealth != "Low" or task.reward > 20:
+                    continue
 
+            # Class requirement
             if task.required_class and self.wealth != task.required_class:
+                # Rare chance for Low-class to breach class requirement
+                if self.wealth == "Low" and random.random() < 0.05:
+                    pass  # allow it
+                else:
+                    continue
+
+            # Broke check
+            # Low-class can attempt tasks even if it takes them slightly negative
+            if self.wealth != "Low" and self.rewards < task.base_loss:
                 continue
 
             available.append(task)
+
         return available
+
 
     def choose_task(self, tasks):
         viable_tasks = []
@@ -150,15 +178,95 @@ class Agent:
             if self.rewards < task.base_loss:
                 continue
 
+            # Overconfidence check
+            if self.wealth == "High" and task.difficulty > self.identity.competence + 0.2:
+                continue
+
             viable_tasks.append(task)
 
+        # Final boss of every CS student
         if viable_tasks == []:
-            return Task("No Available Task", difficulty=1, reward=0, variance=0, base_loss=20, repeatability=1)
+            return Task(
+                name="Unemployment",
+                difficulty=0.9,
+                reward=0,
+                variance=0,
+                base_loss=15,
+                repeatability=999
+            )
+
         
-        return max(viable_tasks, key=lambda x : x.reward)
+        # elites be like ima do dat task anyway (low volatility, high long term reward)
+        def task_score(task):
+            expected_gain = task.reward * self.performance_estimate
+            expected_loss = task.base_loss * (1 - self.performance_estimate)
+            return expected_gain - expected_loss
+
+        return max(viable_tasks, key=task_score)
+    
+    # the low confidence people bring each other down, opposite for high
+    def peer_confidence_update(self, peer):
+        delta = 0.02 * (peer.identity.confidence - self.identity.confidence)
+        self.identity.confidence += delta
+        self.identity.confidence = clamp(self.identity.confidence, 0, 1)
+
+    def peer_opportunity(self, peer):
+        if peer.wealth in ["Middle", "High"] and self.wealth == "Low":
+            if random.random() < 0.05 * peer.social_capital:
+                self.identity.aspiration += 0.1
+                self.identity.aspiration = clamp(self.identity.aspiration, 0, 1)
+                self.social_capital += 0.05
+                self.social_capital = clamp(self.social_capital, 0, 1)
+
+    def peer_learning(self, peer):
+        # Only learn if peer is doing better
+        if peer.identity.competence > self.identity.competence:
+            # Only attempt learning if agent succeeded last task
+            if self.last_task_succeeded and random.random() < 0.15:
+                self.identity.competence += 0.02
+                # Clamp so competence doesn't exceed max
+                self.identity.competence = clamp(self.identity.competence, 0, 1)
+
+
+    def interact(self, population):
+        def pick_peers(agent, population, k=2):
+            same = [a for a in population if a.wealth == agent.wealth and a.alive]
+            above = [a for a in population if a.wealth > agent.wealth and a.alive]
+            below = [a for a in population if a.wealth < agent.wealth and a.alive]
+
+            peers = []
+            if same:
+                peers += random.sample(same, min(1, len(same)))
+            if above and random.random() < 0.25:
+                peers += random.sample(above, 1)
+            if below and random.random() < 0.1:
+                peers += random.sample(below, 1)
+            return peers[:k]
+    
+        peers = pick_peers(self, population)
+        for peer in peers:
+            self.peer_confidence_update(peer)
+            self.peer_opportunity(peer)
+            self.peer_learning(peer)
 
     def update(self, outcome):
+        # Youth buffers burnout (early coping)
+        if self.age < 30:
+            self.dropout_pressure *= 0.88
+        elif self.age < 40:
+            self.dropout_pressure *= 0.93
+        else:
+            self.dropout_pressure *= 0.97
+
         age_rate = np.exp(-self.age / DECAY_RATE) # updates become less drastic the older an agent is
+        
+       # social capital wears off over time
+        self.social_capital *= 0.995
+
+        # if ur trolling too much, you get downgraded
+        if self.age > 50 and self.identity.confidence < 0.3:
+            self.identity.aspiration *= 0.7
+            self.identity.risk_tolerance *= 0.7
 
         observed = 1 if outcome["success"] else 0
         self.performance_estimate = (
@@ -166,28 +274,47 @@ class Agent:
         )
 
         if outcome["success"]:
-            self.rewards += outcome["reward"]
+            self.rewards += outcome["reward"] * Wealth_Rate[self.wealth]
             belief_delta = outcome["feedback"]
             confidence = clamp(self.identity.confidence, 0.2, 1)
             belief_delta *= confidence
             self.identity.confidence += 0.08 * Wealth_Rate[self.wealth]
 
+            # NEW: success relieves dropout pressure
+            self.dropout_pressure = max(0, self.dropout_pressure - 0.05)
+
+            # Rare mentor boost, Senapi notices u
+            if outcome["success"] and self.wealth == "Low":
+                if random.random() < 0.08:
+                    self.identity.competence += 0.05
+                    self.identity.max_confidence += 0.1
+
         else:
+            # You burn out and lose confidence when you're at rock bottom
             if self.wealth == "Low" and self.rewards < 10:
-                self.alive = False # drop out if ur too under
-            self.rewards += outcome["loss"]
+                self.rewards = 10
+                self.identity.confidence -= 0.05
+                self.identity.aspiration *= 0.9
+
+            self.rewards -= outcome["loss"]
             belief_delta = outcome["feedback"]
             confidence = clamp(self.identity.confidence, 0.2, 1)
             belief_delta *= confidence
 
             # Failure hurts and persists
             scar = {
-                "Low": 0.03,
-                "Middle": 0.015,
-                "High": 0.0005
+                "Low": 0.02,
+                "Middle": 0.01,
+                "High": 0.0003
             }[self.wealth]
-
             self.identity.max_confidence -= scar
+
+            # NEW: failure increases accumulated dropout pressure
+            self.dropout_pressure += {
+                "Low": 0.08,
+                "Middle": 0.04,
+                "High": 0.015
+            }[self.wealth]
 
         if self.wealth == "High":
             self.identity.confidence += belief_delta * age_rate * WEALTH_RATE.HIGH.value
@@ -196,39 +323,132 @@ class Agent:
         else:
             self.identity.confidence += belief_delta * age_rate
 
-
         self.identity.risk_tolerance += age_rate * (0.05 if outcome["success"] else -0.1)
-        self.identity.aspiration += age_rate * belief_delta * 0.5
-        
+        aspiration_gain = age_rate * belief_delta * 0.5
+        if self.wealth == "Low" and self.age < 35:
+            aspiration_gain *= 0.4
+        self.identity.aspiration += aspiration_gain
+
+
         # Aspirational agents should feel misaligned if they underperform their aspirations
         aspiration_gap = self.identity.aspiration - self.identity.confidence
-        if aspiration_gap > 0.2:
-            self.identity.risk_tolerance += 0.02 * age_rate
+        if aspiration_gap > 0.2 and self.age > 30:
+            self.dropout_pressure += 0.02
 
         # Reality Check, you're only as good as how talented u are
         task_signal = 1.0 if outcome["success"] else 0.0
-
         learning_rate = 0.03 * age_rate * Wealth_Rate[self.wealth]
-
         self.identity.competence += learning_rate * (
             task_signal - self.identity.competence
         )
 
         # Calibrates confidence to competence, you cant run away with optimism
-        self.identity.confidence += clamp(0.01 * age_rate * (
-            self.identity.competence - self.identity.confidence), -0.005, 0.005)
+        self.identity.confidence += clamp(
+            0.01 * age_rate * (
+                self.identity.competence - self.identity.confidence
+            ),
+            -0.005,
+            0.005
+        )
 
         max_competence = 0.6 + 0.4 * self.talent
         self.identity.competence = min(self.identity.competence, max_competence)
-        self.identity.confidence = clamp(self.identity.confidence, 0.05, self.identity.max_confidence)
+        self.identity.confidence = clamp(
+            self.identity.confidence,
+            0.05,
+            self.identity.max_confidence
+        )
         low, high = RISK_BANDS[self.identity.risk_class]
         self.identity.risk_tolerance = clamp(self.identity.risk_tolerance, low, high)
         self.identity.aspiration = clamp(self.identity.aspiration, 0, 1)
+
+        # Passive capital growth (rich gets richer baby, capitalism)
+        capital_return = {
+            "Low": 0.00,
+            "Middle": 0.01,
+            "High": 0.025
+        }[self.wealth]
+        self.rewards += self.rewards * capital_return
+
+        # Living aint free buddy, time to pay up
+        LIVING_COST = {
+            "Low": 2,
+            "Middle": 4,
+            "High": 6
+        }
+        self.rewards -= LIVING_COST[self.wealth]
+
+        # But the rich gets a jail out of free card baby
+        ELITE_FLOOR = {
+            "Low": -10,
+            "Middle": 0,
+            "High": 20
+        }
+        if self.rewards < ELITE_FLOOR[self.wealth]:
+            self.rewards = ELITE_FLOOR[self.wealth]
+
+        # The rich get richer? what about the poor again?
+        if self.last_task == "Unemployment":
+            self.identity.confidence -= 0.05
+            self.identity.confidence = clamp(self.identity.confidence, 0, 1)
+            self.identity.aspiration -= 0.02
+            self.identity.aspiration = clamp(self.identity.aspiration, 0, 1)
+
+            # NEW: unemployment compounds dropout pressure
+            self.dropout_pressure += 0.05
+
+        # yea the poor really get hurt bad by the system, diminishing return
+        if self.wealth == "Low" and self.rewards > 150:
+            self.rewards *= 0.98
+
+        # NEW: middle/high class tend to "settle" instead of dropping out
+        if self.wealth != "Low" and self.dropout_pressure > 0.6:
+            self.identity.aspiration *= 0.85
+            self.identity.risk_tolerance *= 0.85
+            self.dropout_pressure *= 0.7
+
+        # still got some support left guys
+        if self.wealth == "Low" and self.age < 30:
+            self.rewards += 2
+
+        # Rare positive life shock (luck)
+        if self.wealth == "Low" and random.random() < 0.015:
+            windfall = random.uniform(20, 80)
+            self.rewards += windfall
+            self.identity.confidence += 0.1
+
+        # Social credit still limited by class unfortun
+        SOCIAL_CAP_MAX = {
+            "Low": 0.6,
+            "Middle": 0.8,
+            "High": 1.0
+        }
+        self.social_capital = min(self.social_capital, SOCIAL_CAP_MAX[self.wealth])
+
+
+
+        # probabilistic dropout instead of instant death
+        RESILIENCE = {
+            "Low": 1.0,
+            "Middle": 0.7,
+            "High": 0.4
+        }[self.wealth]
+
+        if self.dropout_pressure > 0.8:
+            dropout_chance = clamp(
+                (self.dropout_pressure - 0.6) * RESILIENCE,
+                0,
+                0.5
+            )
+            if random.random() < dropout_chance:
+                self.alive = False
+
 
     def state_summary(self):
         return {
             "id": self.id,
             "name": self.name,
+            "gender": self.gender,
             "age": self.age,
             "class": self.wealth,
             "alive": self.alive,
@@ -264,8 +484,12 @@ class Task:
             "High": 0.7
         }
 
+        luck = random.gauss(0, 0.05)
+
         # Doing the actual task
-        performance = agent.talent + random.uniform(-self.variance, self.variance) * class_noise[agent.wealth]
+        performance = (agent.talent + 
+                       luck + 
+                       random.uniform(-self.variance, self.variance) * class_noise[agent.wealth])
 
         # Effects of training slows down as you age
         task_value = self.reward * np.exp(-agent.tasks_done[self.name] / self.repeatability)

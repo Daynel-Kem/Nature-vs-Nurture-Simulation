@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
+// ============================================================================
+// GEMINI API KEY SETUP
+// ============================================================================
+// Option 1: Set environment variable (RECOMMENDED FOR PRODUCTION)
+// Create a .env file in your project root with:
+// REACT_APP_GEMINI_API_KEY=your-api-key-here
+// 
+// Option 2: Replace the string below directly (ONLY FOR TESTING)
+// const GEMINI_API_KEY = "your-api-key-here";
+//
+// For now, we'll use the environment variable approach:
+const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+// ============================================================================
+
 const Sidebar = ({ stats, selectedAgent, setSelectedAgent, onAnalyzeAgent, analysisLoading, isConnected, viewConfigs, activeView }) => {    
   return (
     <div className="w-80 bg-gray-800 p-4 overflow-y-auto border-l border-gray-700">
@@ -27,15 +41,87 @@ const Sidebar = ({ stats, selectedAgent, setSelectedAgent, onAnalyzeAgent, analy
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-red-400">Low:</span>
-              <span>{stats.avgConfidence.Low?.toFixed(3) || '0.000'}</span>
+              <span>{stats.avgConfidence?.Low?.toFixed(3) || '0.000'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-green-400">Middle:</span>
-              <span>{stats.avgConfidence.Middle?.toFixed(3) || '0.000'}</span>
+              <span>{stats.avgConfidence?.Middle?.toFixed(3) || '0.000'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-blue-400">High:</span>
-              <span>{stats.avgConfidence.High?.toFixed(3) || '0.000'}</span>
+              <span>{stats.avgConfidence?.High?.toFixed(3) || '0.000'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-700 p-3 rounded">
+          <div className="text-sm text-gray-400 mb-2">Avg Competence by Class</div>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-red-400">Low:</span>
+              <span>{stats.avgCompetence?.Low?.toFixed(3) || '0.000'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-green-400">Middle:</span>
+              <span>{stats.avgCompetence?.Middle?.toFixed(3) || '0.000'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-blue-400">High:</span>
+              <span>{stats.avgCompetence?.High?.toFixed(3) || '0.000'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-700 p-3 rounded">
+          <div className="text-sm text-gray-400 mb-2">Avg Aspiration by Class</div>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-red-400">Low:</span>
+              <span>{stats.avgAspiration?.Low?.toFixed(3) || '0.000'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-green-400">Middle:</span>
+              <span>{stats.avgAspiration?.Middle?.toFixed(3) || '0.000'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-blue-400">High:</span>
+              <span>{stats.avgAspiration?.High?.toFixed(3) || '0.000'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-700 p-3 rounded">
+          <div className="text-sm text-gray-400 mb-2">Avg Risk Tolerance by Class</div>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-red-400">Low:</span>
+              <span>{stats.avgRiskTolerance?.Low?.toFixed(3) || '0.000'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-green-400">Middle:</span>
+              <span>{stats.avgRiskTolerance?.Middle?.toFixed(3) || '0.000'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-blue-400">High:</span>
+              <span>{stats.avgRiskTolerance?.High?.toFixed(3) || '0.000'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-700 p-3 rounded">
+          <div className="text-sm text-gray-400 mb-2">Avg Money by Class</div>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-red-400">Low:</span>
+              <span className="text-green-300">${stats.avgMoney?.Low?.toFixed(0) || '0'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-green-400">Middle:</span>
+              <span className="text-green-300">${stats.avgMoney?.Middle?.toFixed(0) || '0'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-blue-400">High:</span>
+              <span className="text-green-300">${stats.avgMoney?.High?.toFixed(0) || '0'}</span>
             </div>
           </div>
         </div>
@@ -55,6 +141,10 @@ const Sidebar = ({ stats, selectedAgent, setSelectedAgent, onAnalyzeAgent, analy
               <div className="flex justify-between border-b border-blue-700 pb-1">
                 <span className="text-blue-300 font-semibold">Name:</span>
                 <span className="text-white">{selectedAgent.name}</span>
+              </div>
+              <div className="flex justify-between border-b border-blue-700 pb-1">
+                <span className="text-blue-300 font-semibold">Gender:</span>
+                <span className="text-white">{selectedAgent.gender === 'male' ? '♂️ Male' : '♀️ Female'}</span>
               </div>
               <div className="flex justify-between border-b border-blue-700 pb-1">
                 <span className="text-blue-300 font-semibold">Class:</span>
@@ -96,9 +186,9 @@ const Sidebar = ({ stats, selectedAgent, setSelectedAgent, onAnalyzeAgent, analy
                 <button
                   onClick={onAnalyzeAgent}
                   disabled={analysisLoading}
-                  className="mt-3 w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded"
+                  className="mt-3 w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded disabled:bg-gray-600 disabled:cursor-not-allowed"
                 >
-                  {analysisLoading ? "Analyzing…" : "🧠 Analyze Trajectory"}
+                  {analysisLoading ? "Analyzing…" : "Analyze Trajectory"}
                 </button>
               ) : (
                 <div className="mt-3 text-xs italic text-gray-400">
@@ -152,7 +242,11 @@ const SocialMobilityViz = () => {
     round: 0,
     alive: 0,
     dropouts: 0,
-    avgConfidence: { Low: 0, Middle: 0, High: 0 }
+    avgConfidence: { Low: 0, Middle: 0, High: 0 },
+    avgCompetence: { Low: 0, Middle: 0, High: 0 },
+    avgAspiration: { Low: 0, Middle: 0, High: 0 },
+    avgRiskTolerance: { Low: 0, Middle: 0, High: 0 },
+    avgMoney: { Low: 0, Middle: 0, High: 0 }
   });
   const [selectedAgent, setSelectedAgent] = useState(null);
 
@@ -160,6 +254,10 @@ const SocialMobilityViz = () => {
   const [analysisText, setAnalysisText] = useState("");
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
+  
+  // New state for image generation
+  const [analysisImageUrl, setAnalysisImageUrl] = useState(null);
+  const [imageGenerating, setImageGenerating] = useState(false);
 
   const [wsUrl, setWsUrl] = useState('http://localhost:5000');
   const [connectionError, setConnectionError] = useState('');
@@ -194,6 +292,331 @@ const SocialMobilityViz = () => {
   const visualModeRef = useRef('spiral');
   const activeViewRef = useRef('self-knowledge');
 
+  // ============================================================================
+  // IMAGE GENERATION FUNCTIONS
+  // ============================================================================
+  
+  const buildImagePrompt = (agent) => {
+    const age = agent.age;
+    const ageDesc = age < 8 ? "child (1-8)" : 
+                    age < 13 ? "preteen (9-13)" : 
+                    age < 18 ? "teens (13-20)" : 
+                    age < 25 ? "young adult (20s)" : 
+                    age < 40 ? "middle-aged (30s-40s)" : 
+                    age < 60 ? "mature adult (40s-60s)" : 
+                    "senior (60+)";
+    
+    const wealthClass = agent.class;
+    const confidence = agent.confidence;
+    const money = agent.money;
+    
+    const outfit = {
+      'High': 'business professional attire (suit, blazer, tie) or high fashion clothing',
+      'Middle': 'smart casual clothing (button-up shirt) or modern clothes',
+      'Low': 'casual everyday clothing (t-shirt)'
+    }[wealthClass] || 'casual clothing';
+    
+    let expression;
+    if (confidence > 0.7 && money > 100) {
+      expression = "confident, optimistic smile, bright eyes";
+    } else if (confidence < 0.3 || money < 30) {
+      expression = "worried, stressed expression, tired eyes";
+    } else {
+      expression = "neutral, contemplative expression";
+    }
+    
+    const accessories = wealthClass === 'High' ? 
+      ", polished appearance, sometimes wearing professional glasses" : 
+      money < 30 ? ", showing subtle worry lines" : "";
+    
+    return `
+Create a simple, professional clipart illustration portrait of a person:
+
+CHARACTERISTICS:
+- Age: ${ageDesc}
+- Gender: ${agent.gender || (agent.id % 2 === 0 ? 'male' : 'female')}
+- Appearance: ${outfit}${accessories}
+- Expression: ${expression}
+
+STYLE:
+- Clean, minimalist clipart illustration (not photorealistic)
+- Square portrait (512x512), shoulders and head visible
+- Solid neutral color or subtle gradient background
+- Professional icon/avatar style, flat design aesthetic
+- Warm, approachable design with good color contrast
+- Modern, friendly corporate illustration style
+
+This portrait should subtly reflect their socioeconomic background and current life situation.
+    `.trim();
+  };
+
+  const generateAgentImage = async (agent) => {
+    // Check if API key is configured
+    if (!GEMINI_API_KEY) {
+      console.warn("Gemini API key not configured. Skipping image generation.");
+      console.warn("To enable: Create .env file with REACT_APP_GEMINI_API_KEY=your-key");
+      return;
+    }
+
+    setImageGenerating(true);
+    try {
+      const imagePrompt = buildImagePrompt(agent);
+      
+      // Use Gemini 2.5 Flash Image (Nano Banana) for image generation
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: imagePrompt
+              }]
+            }],
+            generationConfig: {
+              responseModalities: ["IMAGE"]  // Only generate image, no text
+            }
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Image generation failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      // Extract the base64 image from Gemini response
+      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+        const imagePart = data.candidates[0].content.parts.find(part => part.inlineData);
+        
+        if (imagePart && imagePart.inlineData) {
+          const imageBase64 = imagePart.inlineData.data;
+          const mimeType = imagePart.inlineData.mimeType || 'image/png';
+          const imageUrl = `data:${mimeType};base64,${imageBase64}`;
+          setAnalysisImageUrl(imageUrl);
+        } else {
+          throw new Error("No image data found in response");
+        }
+      } else {
+        console.error("Unexpected API response format:", data);
+        throw new Error("No image data in response");
+      }
+      
+    } catch (error) {
+      console.error("Error generating image:", error);
+      setAnalysisImageUrl(null);
+      // Don't throw - we want the analysis to continue even if image generation fails
+    } finally {
+      setImageGenerating(false);
+    }
+  };
+
+  // ============================================================================
+  // END IMAGE GENERATION FUNCTIONS
+  // ============================================================================
+
+  // ============================================================================
+  // TRAJECTORY GRAPH COMPONENT
+  // ============================================================================
+  
+  const TrajectoryGraph = ({ agent }) => {
+    const canvasRef = useRef(null);
+    
+    useEffect(() => {
+      if (!canvasRef.current || !agent.history || agent.history.length === 0) return;
+      
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, width, height);
+      
+      // Setup
+      const padding = 40;
+      const graphWidth = width - padding * 2;
+      const graphHeight = height - padding * 2;
+      
+      const history = agent.history || [];
+      if (history.length === 0) return;
+      
+      // Extract data
+      const ages = history.map(h => h.age);
+      const minAge = Math.min(...ages);
+      const maxAge = Math.max(...ages);
+      
+      // Metrics to plot
+      const metrics = [
+        { 
+          key: 'confidence', 
+          label: 'Confidence', 
+          color: '#60a5fa' // blue
+        },
+        { 
+          key: 'competence', 
+          label: 'Competence', 
+          color: '#34d399' // green
+        },
+        { 
+          key: 'aspiration', 
+          label: 'Aspiration', 
+          color: '#fbbf24' // yellow
+        },
+        { 
+          key: 'risk_tolerance', 
+          label: 'Risk Tolerance', 
+          color: '#f87171' // red
+        }
+      ];
+      
+      // Draw background grid
+      ctx.strokeStyle = '#374151';
+      ctx.lineWidth = 1;
+      
+      // Vertical grid lines
+      for (let i = 0; i <= 5; i++) {
+        const x = padding + (graphWidth / 5) * i;
+        ctx.beginPath();
+        ctx.moveTo(x, padding);
+        ctx.lineTo(x, height - padding);
+        ctx.stroke();
+      }
+      
+      // Horizontal grid lines
+      for (let i = 0; i <= 4; i++) {
+        const y = padding + (graphHeight / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
+        ctx.stroke();
+      }
+      
+      // Draw axes
+      ctx.strokeStyle = '#9ca3af';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(padding, padding);
+      ctx.lineTo(padding, height - padding);
+      ctx.lineTo(width - padding, height - padding);
+      ctx.stroke();
+      
+      // Draw Y-axis labels (0% to 100%)
+      ctx.fillStyle = '#d1d5db';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const y = height - padding - (graphHeight / 4) * i;
+        const value = (i * 25).toFixed(0);
+        ctx.fillText(value + '%', padding - 10, y + 4);
+      }
+      
+      // Draw X-axis labels (age)
+      ctx.textAlign = 'center';
+      for (let i = 0; i <= 5; i++) {
+        const x = padding + (graphWidth / 5) * i;
+        const age = minAge + ((maxAge - minAge) / 5) * i;
+        ctx.fillText(Math.round(age), x, height - padding + 20);
+      }
+      
+      // Axis labels
+      ctx.font = 'bold 14px Arial';
+      ctx.fillStyle = '#f3f4f6';
+      ctx.textAlign = 'center';
+      ctx.fillText('Age', width / 2, height - 5);
+      
+      ctx.save();
+      ctx.translate(15, height / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('Value (%)', 0, 0);
+      ctx.restore();
+      
+      // Draw lines for each metric
+      metrics.forEach(metric => {
+        ctx.strokeStyle = metric.color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        
+        history.forEach((point, i) => {
+          const x = padding + ((point.age - minAge) / (maxAge - minAge || 1)) * graphWidth;
+          const y = height - padding - (point[metric.key] * graphHeight);
+          
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        
+        ctx.stroke();
+        
+        // Draw points
+        ctx.fillStyle = metric.color;
+        history.forEach(point => {
+          const x = padding + ((point.age - minAge) / (maxAge - minAge || 1)) * graphWidth;
+          const y = height - padding - (point[metric.key] * graphHeight);
+          
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      });
+      
+      // Legend
+      const legendX = width - padding - 150;
+      const legendY = padding + 10;
+      
+      metrics.forEach((metric, i) => {
+        const y = legendY + i * 20;
+        
+        // Line
+        ctx.strokeStyle = metric.color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(legendX, y);
+        ctx.lineTo(legendX + 30, y);
+        ctx.stroke();
+        
+        // Label
+        ctx.fillStyle = '#f3f4f6';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(metric.label, legendX + 40, y + 4);
+      });
+      
+    }, [agent]);
+    
+    if (!agent.history || agent.history.length === 0) {
+      return (
+        <div className="bg-gray-800 p-4 rounded-lg text-center text-gray-400">
+          No trajectory data available yet
+        </div>
+      );
+    }
+    
+    return (
+      <div className="bg-gray-800 p-4 rounded-lg">
+        <h4 className="text-sm font-bold text-gray-300 mb-3">Life Trajectory</h4>
+        <canvas 
+          ref={canvasRef} 
+          width={600} 
+          height={300}
+          className="w-full"
+          style={{ maxWidth: '100%', height: 'auto' }}
+        />
+      </div>
+    );
+  };
+
+  // ============================================================================
+  // END TRAJECTORY GRAPH COMPONENT
+  // ============================================================================
+
   // View configurations - all three axes used meaningfully
   const viewConfigs = {
     'self-knowledge': {
@@ -205,7 +628,7 @@ const SocialMobilityViz = () => {
         type: 'continuous'
       },
       yAxis: { 
-        label: 'SELF BELIEF (Confidence)', 
+        label: 'CONFIDENCE', 
         getValue: (a) => a.confidence 
       },
       zAxis: { 
@@ -226,7 +649,7 @@ const SocialMobilityViz = () => {
       },
       yAxis: { 
         label: 'TOTAL REWARDS', 
-        getValue: (a) => Math.min(a.total_rewards / 3000, 1) // Increased scale from 500 to 3000
+        getValue: (a) => Math.min(a.total_rewards / 3000, 1)
       },
       zAxis: { 
         label: 'WEALTH CLASS', 
@@ -263,11 +686,11 @@ const SocialMobilityViz = () => {
         getValue: (a) => a.age / 50,
         type: 'continuous'
       },
-      yAxis: { 
+      zAxis: { 
         label: 'RISK TOLERANCE', 
         getValue: (a) => a['risk tolerance']
       },
-      zAxis: { 
+      yAxis: { 
         label: 'ASPIRATION', 
         getValue: (a) => a.aspiration,
         type: 'continuous'
@@ -304,7 +727,7 @@ const SocialMobilityViz = () => {
       },
       yAxis: { 
         label: 'FINAL REWARDS', 
-        getValue: (a) => Math.min(a.total_rewards / 3000, 1) // Changed from 500 to 3000
+        getValue: (a) => Math.min(a.total_rewards / 2, 1)
       },
       zAxis: { 
         label: 'CONFIDENCE', 
@@ -334,6 +757,11 @@ const SocialMobilityViz = () => {
         setAgents(data.agents);
         updateAgentPositions(data.agents);
       });
+
+      socket.on('simulation_unpaused', () => {
+      setSimulationRunning(true);
+      console.log('Simulation unpaused');
+    });
       
       socket.on('stats_update', (data) => {
         setStats(data.stats);
@@ -362,14 +790,19 @@ const SocialMobilityViz = () => {
     }
   };
 
-    const analyzeSelectedAgent = async () => {
+  const analyzeSelectedAgent = async () => {
     if (!selectedAgent || stats.round < 10) return;
 
     setAnalysisLoading(true);
     setAnalysisError(null);
     setAnalysisText("");
+    setAnalysisImageUrl(null);
 
     try {
+      // Start image generation in parallel (don't wait for it)
+      generateAgentImage(selectedAgent);
+      
+      // Call backend for text analysis
       const res = await fetch("http://127.0.0.1:5000/analyzeagent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -386,6 +819,7 @@ const SocialMobilityViz = () => {
 
     } catch (err) {
       setAnalysisError(err.message);
+      setShowAnalysis(true); // Still show the modal even if analysis fails
     } finally {
       setAnalysisLoading(false);
     }
@@ -535,14 +969,11 @@ const SocialMobilityViz = () => {
   }, [autoRotate, isDragging, cameraAngle, cameraDistance, visualMode, activeView]);
 
   const createGridSystem = (scene, currentView) => {
-    // Horizontal ground grid
     const groundGrid = new THREE.GridHelper(150, 30, 0x444444, 0x222222);
     scene.add(groundGrid);
 
-    // Create axis lines
     const axisLineMaterial = new THREE.LineBasicMaterial({ color: 0x888888, linewidth: 2 });
     
-    // X-axis
     const xAxisGeometry = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(-75, 0, 0),
       new THREE.Vector3(75, 0, 0)
@@ -550,7 +981,6 @@ const SocialMobilityViz = () => {
     const xAxis = new THREE.Line(xAxisGeometry, axisLineMaterial);
     scene.add(xAxis);
 
-    // Y-axis
     const yAxisGeometry = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(0, 0, 0),
       new THREE.Vector3(0, 40, 0)
@@ -558,7 +988,6 @@ const SocialMobilityViz = () => {
     const yAxis = new THREE.Line(yAxisGeometry, axisLineMaterial);
     scene.add(yAxis);
 
-    // Z-axis
     const zAxisGeometry = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(0, 0, -60),
       new THREE.Vector3(0, 0, 60)
@@ -606,22 +1035,18 @@ const SocialMobilityViz = () => {
       return sprite;
     };
 
-    // X-axis label
     const xLabel = createTextSprite(`${config.xAxis.label} →`, 12);
     xLabel.position.set(0, -3, -65);
     scene.add(xLabel);
 
-    // Y-axis label
     const yLabel = createTextSprite(`↑ ${config.yAxis.label}`, 10);
     yLabel.position.set(-85, 20, 0);
     scene.add(yLabel);
 
-    // Z-axis label
     const zLabel = createTextSprite(`← ${config.zAxis.label} →`, 12);
     zLabel.position.set(-85, -3, 0);
     scene.add(zLabel);
 
-    // Y-axis markers (dynamic labels based on metric)
     const yLevels = [
       { value: 0, y: 3 },
       { value: 0.25, y: 11.75 },
@@ -630,11 +1055,10 @@ const SocialMobilityViz = () => {
       { value: 1.0, y: 38 }
     ];
 
-    // Get appropriate labels for Y-axis based on metric
     const getYAxisLabel = (value) => {
       const label = config.yAxis.label;
       if (label.includes('WEALTH') || label.includes('REWARDS')) {
-        return `$${Math.round(value * 3000)}`; // Changed from 500 to 3000
+        return `$${Math.round(value * 3000)}`;
       } else if (label.includes('DIFFICULTY') || label.includes('RATE') || 
                  label.includes('TOLERANCE') || label.includes('BELIEF') ||
                  label.includes('CONFIDENCE') || label.includes('ASPIRATION') ||
@@ -646,7 +1070,7 @@ const SocialMobilityViz = () => {
 
     yLevels.forEach(level => {
       const marker = createNumberSprite(getYAxisLabel(level.value), 5);
-      marker.position.set(-20, level.y, -65); // Pushed from -10 to -20
+      marker.position.set(-20, level.y, -65);
       scene.add(marker);
 
       const tickGeometry = new THREE.BufferGeometry().setFromPoints([
@@ -657,12 +1081,11 @@ const SocialMobilityViz = () => {
       scene.add(tickLine);
     });
 
-    // Z-axis markers (or categorical labels)
     if (config.zAxis.type === 'categorical') {
       const positions = [-50, 0, 50];
       config.zAxis.categories.forEach((category, idx) => {
         const marker = createNumberSprite(category, 5);
-        marker.position.set(-95, -3, positions[idx]); // Pushed from -85 to -95
+        marker.position.set(-95, -3, positions[idx]);
         scene.add(marker);
       });
     } else {
@@ -674,7 +1097,6 @@ const SocialMobilityViz = () => {
         { value: 1.0, z: 50 }
       ];
 
-      // Get appropriate labels for Z-axis based on metric
       const getZAxisLabel = (value) => {
         const label = config.zAxis.label;
         if (label.includes('AGE')) {
@@ -689,17 +1111,16 @@ const SocialMobilityViz = () => {
 
       zLevels.forEach(level => {
         const marker = createNumberSprite(getZAxisLabel(level.value), 5);
-        marker.position.set(-95, -3, level.z); // Pushed from -85 to -95
+        marker.position.set(-95, -3, level.z);
         scene.add(marker);
       });
     }
 
-    // X-axis markers (or categorical labels)
     if (config.xAxis.type === 'categorical') {
       const positions = [-50, 0, 50];
       config.xAxis.categories.forEach((category, idx) => {
         const marker = createNumberSprite(category, 5);
-        marker.position.set(positions[idx], -8, -65); // Pushed from -3 to -8
+        marker.position.set(positions[idx], -8, -65);
         scene.add(marker);
       });
     } else {
@@ -711,7 +1132,6 @@ const SocialMobilityViz = () => {
         { value: 1.0, x: 50 }
       ];
 
-      // Get appropriate labels for X-axis based on metric
       const getXAxisLabel = (value) => {
         const label = config.xAxis.label;
         if (label.includes('AGE')) {
@@ -727,7 +1147,7 @@ const SocialMobilityViz = () => {
 
       xLevels.forEach(level => {
         const marker = createNumberSprite(getXAxisLabel(level.value), 5);
-        marker.position.set(level.x, -8, -65); // Pushed from -3 to -8
+        marker.position.set(level.x, -8, -65);
         scene.add(marker);
       });
     }
@@ -742,12 +1162,10 @@ const SocialMobilityViz = () => {
 
     let x, y, z;
 
-    // Map values to 3D space
     x = (xValue - 0.5) * 100;
     y = yValue * 35 + 3;
     z = (zValue - 0.5) * 100;
 
-    // Add small jitter to prevent exact overlaps based on layout mode
     if (visualModeRef.current === 'scatter') {
       const hash = agent.id * 2654435761;
       x += ((hash % 100) / 100 - 0.5) * 3;
@@ -762,7 +1180,6 @@ const SocialMobilityViz = () => {
 
     const config = viewConfigs[activeViewRef.current];
     
-    // Apply filter if exists
     let filteredAgents = agentData;
     if (config.filter) {
       filteredAgents = agentData.filter(a => a.alive && config.filter(a));
@@ -770,7 +1187,6 @@ const SocialMobilityViz = () => {
       filteredAgents = agentData.filter(a => a.alive);
     }
 
-    // Remove agents that don't pass the filter
     agentData.forEach((agent) => {
       if ((!agent.alive || (config.filter && !config.filter(agent))) && agentMeshesRef.current[agent.id]) {
         sceneRef.current.remove(agentMeshesRef.current[agent.id]);
@@ -809,11 +1225,9 @@ const SocialMobilityViz = () => {
         
         mesh.userData = { agentId: agent.id };
         
-        // Calculate initial position and spawn there
         const initialPos = calculatePosition(agent, index, filteredAgents.length);
         mesh.position.set(initialPos.x, initialPos.y, initialPos.z);
         
-        // Store initial values for tracking changes
         mesh.userData.lastXValue = config.xAxis.getValue(agent);
         mesh.userData.lastYValue = config.yAxis.getValue(agent);
         mesh.userData.lastZValue = config.zAxis.getValue(agent);
@@ -822,31 +1236,25 @@ const SocialMobilityViz = () => {
         agentMeshesRef.current[agent.id] = mesh;
       }
 
-      // Get current values
       const currentXValue = config.xAxis.getValue(agent);
       const currentYValue = config.yAxis.getValue(agent);
       const currentZValue = config.zAxis.getValue(agent);
 
-      // Calculate target position
       const pos = calculatePosition(agent, index, filteredAgents.length);
       
-      // Only update axes where values have changed (threshold of 0.001)
       const threshold = 0.001;
       
       if (Math.abs(currentXValue - (mesh.userData.lastXValue || 0)) > threshold) {
-        // X value changed, update X position
         mesh.position.x += (pos.x - mesh.position.x) * 0.08;
         mesh.userData.lastXValue = currentXValue;
       }
       
       if (Math.abs(currentYValue - (mesh.userData.lastYValue || 0)) > threshold) {
-        // Y value changed, update Y position
         mesh.position.y += (pos.y - mesh.position.y) * 0.08;
         mesh.userData.lastYValue = currentYValue;
       }
       
       if (Math.abs(currentZValue - (mesh.userData.lastZValue || 0)) > threshold) {
-        // Z value changed, update Z position
         mesh.position.z += (pos.z - mesh.position.z) * 0.08;
         mesh.userData.lastZValue = currentZValue;
       }
@@ -896,6 +1304,13 @@ const SocialMobilityViz = () => {
     if (wsRef.current && wsRef.current.connected) {
       wsRef.current.emit('message', { command: 'pause' });
       setSimulationRunning(false);
+    }
+  };
+
+    const unpauseSimulation = () => {
+    if (wsRef.current && wsRef.current.connected) {
+      wsRef.current.emit('message', { command: 'unpause' });
+      setSimulationRunning(true);
     }
   };
 
@@ -993,6 +1408,8 @@ const SocialMobilityViz = () => {
     cameraDistanceRef.current = newDistance;
   };
 
+
+
   useEffect(() => {
     const canvas = mountRef.current;
     if (!canvas) return;
@@ -1010,10 +1427,8 @@ const SocialMobilityViz = () => {
     }
   }, [agents]);
 
-  // Handle fullscreen resize
   useEffect(() => {
     if (rendererRef.current && cameraRef.current && mountRef.current) {
-      // Small delay to ensure DOM has updated
       setTimeout(() => {
         const width = mountRef.current.clientWidth;
         const height = mountRef.current.clientHeight;
@@ -1081,7 +1496,7 @@ const SocialMobilityViz = () => {
             </div>
           )}
           
-          <div className="flex items-center gap-3 flex-wrap mb-3">
+           <div className="flex items-center gap-3 flex-wrap mb-3">
             <div className={`px-3 py-1 rounded text-sm ${isConnected ? 'bg-green-600' : 'bg-red-600'}`}>
               {isConnected ? '● Connected' : '○ Disconnected'}
             </div>
@@ -1100,6 +1515,13 @@ const SocialMobilityViz = () => {
               Pause
             </button>
             <button
+              onClick={unpauseSimulation}
+              disabled={!isConnected || simulationRunning}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded"
+            >
+              Unpause
+            </button>
+            <button
               onClick={resetSimulation}
               disabled={!isConnected}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded"
@@ -1110,11 +1532,10 @@ const SocialMobilityViz = () => {
               onClick={() => setAutoRotate(!autoRotate)}
               className={`px-4 py-2 rounded ${autoRotate ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}`}
             >
-              {autoRotate ? '🔄 Auto Rotate' : '✋ Manual'}
+              {autoRotate ? 'Auto Rotate' : 'Manual'}
             </button>
           </div>
 
-          {/* View Tabs */}
           <div className="mb-3">
             <div className="text-sm text-gray-400 mb-2">Research Questions:</div>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
@@ -1138,7 +1559,6 @@ const SocialMobilityViz = () => {
             </div>
           </div>
 
-          {/* Layout Mode */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-400">Layout:</span>
             <button
@@ -1187,7 +1607,6 @@ const SocialMobilityViz = () => {
           />
         )}
         
-        {/* Fullscreen toggle button - always visible */}
         {!webglError && (
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
@@ -1209,26 +1628,100 @@ const SocialMobilityViz = () => {
           analysisLoading={analysisLoading}
         />
       </div>
-      {showAnalysis && (
-      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-        <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-lg p-5">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-bold text-purple-300">
-              Agent Reflection
-            </h3>
-            <button onClick={() => setShowAnalysis(false)}>✕</button>
-          </div>
+      
+      {showAnalysis && selectedAgent && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 p-5 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-purple-300">
+                Agent Reflection: {selectedAgent.name}
+              </h3>
+              <button 
+                onClick={() => {
+                  setShowAnalysis(false);
+                  setAnalysisImageUrl(null);
+                }}
+                className="text-gray-400 hover:text-white text-2xl leading-none"
+              >
+                ✕
+              </button>
+            </div>
 
-          {analysisError && (
-            <div className="text-red-400 text-sm">{analysisError}</div>
-          )}
+            <div className="p-5">
+              {/* Agent Avatar */}
+              <div className="flex justify-center my-4">
+                {imageGenerating ? (
+                  <div className="w-64 h-64 flex items-center justify-center bg-gray-800 rounded-lg border-4 border-purple-500">
+                    <div className="text-center">
+                      <div className="animate-spin text-4xl mb-2">0</div>
+                      <div className="text-sm text-gray-400">Generating portrait...</div>
+                    </div>
+                  </div>
+                ) : analysisImageUrl ? (
+                  <img 
+                    src={analysisImageUrl} 
+                    alt={selectedAgent.name}
+                    className="w-64 h-64 object-cover rounded-lg border-4 border-purple-500 shadow-lg"
+                  />
+                ) : (
+                  <div className="w-64 h-64 flex items-center justify-center bg-gray-800 rounded-lg border-4 border-gray-600">
+                    <div className="text-gray-500 text-sm text-center px-4">
+                      {GEMINI_API_KEY ? "Image generation failed" : "Add GEMINI_API_KEY to enable portraits"}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-          <div className="text-sm leading-relaxed whitespace-pre-wrap">
-            {analysisText}
+              {/* Quick Stats */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-gray-800 p-3 rounded">
+                  <div className="text-xs text-gray-400">Class</div>
+                  <div className={`text-lg font-bold ${
+                    selectedAgent.class === 'High' ? 'text-blue-400' :
+                    selectedAgent.class === 'Middle' ? 'text-green-400' :
+                    'text-red-400'
+                  }`}>{selectedAgent.class}</div>
+                </div>
+                <div className="bg-gray-800 p-3 rounded">
+                  <div className="text-xs text-gray-400">Age</div>
+                  <div className="text-lg font-bold">{selectedAgent.age} years</div>
+                </div>
+                <div className="bg-gray-800 p-3 rounded">
+                  <div className="text-xs text-gray-400">Wealth</div>
+                  <div className="text-lg font-bold text-green-400">${selectedAgent.money?.toFixed(0)}</div>
+                </div>
+                <div className="bg-gray-800 p-3 rounded">
+                  <div className="text-xs text-gray-400">Confidence</div>
+                  <div className="text-lg font-bold">{(selectedAgent.confidence * 100).toFixed(0)}%</div>
+                </div>
+              </div>
+
+              {/* Trajectory Graph */}
+              <div className="mb-4">
+                <TrajectoryGraph agent={selectedAgent} />
+              </div>
+
+              {/* Analysis Text */}
+              {analysisError && (
+                <div className="bg-red-900 border border-red-700 text-red-200 p-3 rounded mb-4">
+                  {analysisError}
+                </div>
+              )}
+
+              <div className="bg-gray-800 p-4 rounded-lg">
+                <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+                  {analysisText || (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin text-2xl">0</div>
+                      <span className="ml-3 text-gray-400">Analyzing trajectory...</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
     </div>
   );
 };

@@ -20,6 +20,24 @@ Types of Tasks
    - Looks good short-term
    - Damages long-term belief or wealth
 
+5. Credential / Signaling Tasks
+   - Low immediate payoff, unlocks future access, belief-sensitive
+
+6. Network / Social Capital Tasks
+   - Reward scales with confidence + class; compounding but subtle
+
+7. Creative / Passion Projects
+   - Identity-heavy, volatile, class-fragile
+
+8. Institutional / Bureaucratic Paths
+   - Slow, safe, class-filtered, low variance
+
+9. Informal / Shadow Economy
+   - High accessibility, hidden long-term damage
+
+10. Health / Burnout Management
+   - No money, but prevents collapse
+
 """
 
 # 1
@@ -140,6 +158,16 @@ status_tasks = [
         required_capital=100,
         required_class="High"
     ),
+    Task(
+    name="Private Equity Deal",
+    difficulty=0.6,
+    reward=80,
+    variance=0.1,
+    base_loss=10,
+    repeatability=5,
+    required_capital=200,
+    required_class="High"
+    ),
 ]
 
 # 4
@@ -179,6 +207,189 @@ trap_tasks = [
     ),
 ]
 
-total_tasks = survival_tasks + training_tasks + status_tasks + trap_tasks
+# 5
+credential_tasks = [
+    Task(
+        name="Certification Exam",
+        difficulty=0.55,
+        reward=5,
+        variance=0.05,
+        base_loss=10,
+        repeatability=10,
+        required_capital=20
+    ),
+    Task(
+        name="Prestige Degree",
+        difficulty=0.70,
+        reward=15,
+        variance=0.08,
+        base_loss=20,
+        repeatability=1,
+        required_capital=80,
+        required_class="Middle"
+    ),
+    Task(
+        name="Elite Fellowship",
+        difficulty=0.75,
+        reward=20,
+        variance=0.10,
+        base_loss=25,
+        repeatability=1,
+        required_capital=100,
+        required_class="High"
+    ),
+]
+
+# 6
+network_tasks = [
+    Task(
+        name="Local Networking Event",
+        difficulty=0.40,
+        reward=6,
+        variance=0.05,
+        base_loss=3,
+        repeatability=20
+    ),
+    Task(
+        name="Industry Mixer",
+        difficulty=0.55,
+        reward=12,
+        variance=0.10,
+        base_loss=6,
+        repeatability=12,
+        required_capital=15
+    ),
+    Task(
+        name="Exclusive Retreat",
+        difficulty=0.65,
+        reward=25,
+        variance=0.08,
+        base_loss=8,
+        repeatability=5,
+        required_capital=60,
+        required_class="High"
+    ),
+]
+
+# 7
+creative_tasks = [
+    Task(
+        name="Independent Game Dev",
+        difficulty=0.60,
+        reward=30,
+        variance=0.30,
+        base_loss=12,
+        repeatability=3
+    ),
+    Task(
+        name="Content Creation",
+        difficulty=0.55,
+        reward=25,
+        variance=0.35,
+        base_loss=10,
+        repeatability=4
+    ),
+    Task(
+        name="Novel Writing",
+        difficulty=0.65,
+        reward=45,
+        variance=0.40,
+        base_loss=15,
+        repeatability=2
+    ),
+]
+
+# 8
+institutional_tasks = [
+    Task(
+        name="Civil Service Exam",
+        difficulty=0.50,
+        reward=18,
+        variance=0.05,
+        base_loss=6,
+        repeatability=6
+    ),
+    Task(
+        name="Corporate Ladder",
+        difficulty=0.60,
+        reward=22,
+        variance=0.06,
+        base_loss=7,
+        repeatability=10,
+        required_class="Middle"
+    ),
+    Task(
+        name="Executive Track",
+        difficulty=0.70,
+        reward=35,
+        variance=0.05,
+        base_loss=8,
+        repeatability=8,
+        required_class="High"
+    ),
+]
+
+# 9
+informal_tasks = [
+    Task(
+        name="Cash-Only Side Hustle",
+        difficulty=0.30,
+        reward=10,
+        variance=0.10,
+        base_loss=4,
+        repeatability=12
+    ),
+    Task(
+        name="Grey Market Trading",
+        difficulty=0.45,
+        reward=20,
+        variance=0.25,
+        base_loss=15,
+        repeatability=5
+    ),
+    Task(
+        name="Illegal Arbitrage",
+        difficulty=0.55,
+        reward=35,
+        variance=0.40,
+        base_loss=30,
+        repeatability=2
+    ),
+]
+
+# 10
+recovery_tasks = [
+    Task(
+        name="Rest & Recovery",
+        difficulty=0.20,
+        reward=0,
+        variance=0.00,
+        base_loss=1,
+        repeatability=50
+    ),
+    Task(
+        name="Therapy & Coaching",
+        difficulty=0.35,
+        reward=0,
+        variance=0.00,
+        base_loss=5,
+        repeatability=20,
+        required_capital=20
+    ),
+]
+
+
+total_tasks = (
+    survival_tasks + 
+    training_tasks + 
+    status_tasks + 
+    trap_tasks + 
+    credential_tasks + 
+    network_tasks +
+    creative_tasks +
+    institutional_tasks +
+    informal_tasks +
+    recovery_tasks
+)
 
 # Generatively Make New Tasks depending on recent information or smth idk. use ai

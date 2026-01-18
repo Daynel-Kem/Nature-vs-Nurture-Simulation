@@ -8,7 +8,8 @@ import threading
 from agent import Agent, Task, clamp  # Import your existing code
 from tasks import total_tasks
 import numpy as np
-from analyzer import call_gemini
+import requests
+# from analyzer import call_gemini
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'pissbabypoopoo'
@@ -16,8 +17,8 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 CORS(app, resources={r"/analyzeagent": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}},
      supports_credentials=True)
 
-
 HISTORY_WINDOW = 10
+AI_SERVER = "http://0.0.0.0:8000/"
 
 # Simulation state
 simulation_state = {
@@ -95,6 +96,7 @@ def run_simulation_round():
         agent.reward_history.append(agent.rewards)
         
         agent.update(outcome)
+        agent.interact(agents)
         agent.age += 1
         
         if not agent.alive and agent not in simulation_state['dropouts']:
@@ -162,6 +164,7 @@ def get_agent_data():
         agent_data = {
             "id": agent.id,
             "name": agent.name,
+            "gender": agent.gender,  # ADD THIS LINE
             "age": agent.age,
             "class": agent.wealth,
             "alive": agent.alive,
@@ -181,6 +184,9 @@ def get_agent_data():
             "task_repeatability": int(task_repeatability),
             "total_rewards": float(agent.rewards),
             "initial_rewards": float(agent.initial_rewards),
+            
+            # Agent history for trajectory graph - ADD THIS LINE
+            "history": agent.history if hasattr(agent, 'history') else []
         }
         
         agent_list.append(agent_data)
@@ -197,7 +203,12 @@ def summarize_agent_for_llm(agent):
     if not history:
         return {
             "summary": "No meaningful history yet.",
-            "signals": {}
+            "signals": {
+                "trajectory": "unknown",
+                "most_common_task": "unknown",
+                "pressure": "unknown",
+                "alive": agent.alive
+            }
         }
 
     successes = sum(1 for h in history if h["success"])
@@ -300,15 +311,52 @@ def calculate_stats():
             'Low': 0,
             'Middle': 0,
             'High': 0
+        },
+        'avgCompetence': {
+            'Low': 0,
+            'Middle': 0,
+            'High': 0
+        },
+        'avgAspiration': {
+            'Low': 0,
+            'Middle': 0,
+            'High': 0
+        },
+        'avgRiskTolerance': {
+            'Low': 0,
+            'Middle': 0,
+            'High': 0
+        },
+        'avgMoney': {
+            'Low': 0,
+            'Middle': 0,
+            'High': 0
         }
     }
     
-    # Calculate average confidence by class
+    # Calculate averages by class
     for wealth_class in ['Low', 'Middle', 'High']:
         class_agents = [a for a in alive_agents if a.wealth == wealth_class]
         if class_agents:
+            # Confidence
             avg_conf = sum(a.identity.confidence for a in class_agents) / len(class_agents)
             stats['avgConfidence'][wealth_class] = float(avg_conf)
+            
+            # Competence
+            avg_comp = sum(a.identity.competence for a in class_agents) / len(class_agents)
+            stats['avgCompetence'][wealth_class] = float(avg_comp)
+            
+            # Aspiration
+            avg_asp = sum(a.identity.aspiration for a in class_agents) / len(class_agents)
+            stats['avgAspiration'][wealth_class] = float(avg_asp)
+            
+            # Risk Tolerance
+            avg_risk = sum(a.identity.risk_tolerance for a in class_agents) / len(class_agents)
+            stats['avgRiskTolerance'][wealth_class] = float(avg_risk)
+            
+            # Money
+            avg_money = sum(a.rewards for a in class_agents) / len(class_agents)
+            stats['avgMoney'][wealth_class] = float(avg_money)
     
     return stats
 
@@ -350,11 +398,16 @@ def analyze_agent():
     summary = summarize_agent_for_llm(agent)
     prompt = build_prompt(summary)
 
-    response = call_gemini(prompt)
+    try:
+        r = requests.post(f"{AI_SERVER}analyze", json={"prompt": prompt}, timeout=20)
+        r.raise_for_status()
+        response = r.json()
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 502
 
     return jsonify({
         "agent_id": agent_id,
-        "analysis": response.text
+        "analysis": response["message"]
     })
 
 @socketio.on('connect')
@@ -400,6 +453,15 @@ def handle_message(data):
     elif command == 'pause':
         simulation_state['running'] = False
         emit('simulation_paused', {'message': 'Simulation paused'})
+    
+    elif command == 'unpause':
+        if not simulation_state['running']:
+            simulation_state['running'] = True
+            # Restart simulation loop in background thread
+            thread = threading.Thread(target=simulation_loop)
+            thread.daemon = True
+            thread.start()
+            emit('simulation_unpaused', {'message': 'Simulation resumed'})
     
     elif command == 'reset':
         simulation_state['running'] = False
