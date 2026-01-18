@@ -259,7 +259,7 @@ const SocialMobilityViz = () => {
   const [analysisImageUrl, setAnalysisImageUrl] = useState(null);
   const [imageGenerating, setImageGenerating] = useState(false);
 
-  const [wsUrl, setWsUrl] = useState('http://localhost:5000');
+  const [wsUrl, setWsUrl] = useState('http://66.42.93.104');
   const [connectionError, setConnectionError] = useState('');
   const [autoRotate, setAutoRotate] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
