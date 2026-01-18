@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-const Sidebar = ({ stats, selectedAgent, setSelectedAgent, isConnected, viewConfigs, activeView }) => {
+const Sidebar = ({ stats, selectedAgent, setSelectedAgent, onAnalyzeAgent, analysisLoading, isConnected, viewConfigs, activeView }) => {    
   return (
     <div className="w-80 bg-gray-800 p-4 overflow-y-auto border-l border-gray-700">
       <h2 className="text-xl font-bold mb-4">Statistics</h2>
@@ -92,6 +92,19 @@ const Sidebar = ({ stats, selectedAgent, setSelectedAgent, isConnected, viewConf
                 <span className="text-blue-300 font-semibold">Risk Tolerance:</span>
                 <span className="text-white">{(selectedAgent['risk tolerance'] * 100).toFixed(1)}%</span>
               </div>
+               {stats.round >= 10 ? (
+                <button
+                  onClick={onAnalyzeAgent}
+                  disabled={analysisLoading}
+                  className="mt-3 w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded"
+                >
+                  {analysisLoading ? "Analyzing…" : "🧠 Analyze Trajectory"}
+                </button>
+              ) : (
+                <div className="mt-3 text-xs italic text-gray-400">
+                  Analysis unlocks after 10 rounds
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -142,6 +155,12 @@ const SocialMobilityViz = () => {
     avgConfidence: { Low: 0, Middle: 0, High: 0 }
   });
   const [selectedAgent, setSelectedAgent] = useState(null);
+
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisText, setAnalysisText] = useState("");
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState(null);
+
   const [wsUrl, setWsUrl] = useState('http://localhost:5000');
   const [connectionError, setConnectionError] = useState('');
   const [autoRotate, setAutoRotate] = useState(true);
@@ -154,6 +173,7 @@ const SocialMobilityViz = () => {
   const [numAgents, setNumAgents] = useState(100);
   const [numRounds, setNumRounds] = useState(50);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
   
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
@@ -339,6 +359,35 @@ const SocialMobilityViz = () => {
     } catch (error) {
       console.error('Connection error:', error);
       setConnectionError('Cannot connect to ' + wsUrl);
+    }
+  };
+
+    const analyzeSelectedAgent = async () => {
+    if (!selectedAgent || stats.round < 10) return;
+
+    setAnalysisLoading(true);
+    setAnalysisError(null);
+    setAnalysisText("");
+
+    try {
+      const res = await fetch("http://127.0.0.1:5000/analyzeagent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent_id: selectedAgent.id
+        })
+      });
+
+      if (!res.ok) throw new Error("Failed to analyze agent");
+
+      const data = await res.json();
+      setAnalysisText(data.analysis);
+      setShowAnalysis(true);
+
+    } catch (err) {
+      setAnalysisError(err.message);
+    } finally {
+      setAnalysisLoading(false);
     }
   };
 
@@ -1156,8 +1205,30 @@ const SocialMobilityViz = () => {
           isConnected={isConnected}
           viewConfigs={viewConfigs}
           activeView={activeView}
+          onAnalyzeAgent={analyzeSelectedAgent}
+          analysisLoading={analysisLoading}
         />
       </div>
+      {showAnalysis && (
+      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+        <div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-lg p-5">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-bold text-purple-300">
+              Agent Reflection
+            </h3>
+            <button onClick={() => setShowAnalysis(false)}>✕</button>
+          </div>
+
+          {analysisError && (
+            <div className="text-red-400 text-sm">{analysisError}</div>
+          )}
+
+          <div className="text-sm leading-relaxed whitespace-pre-wrap">
+            {analysisText}
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 };

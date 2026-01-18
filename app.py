@@ -1,16 +1,23 @@
 import eventlet
 eventlet.monkey_patch()
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit
+from flask_cors import CORS, cross_origin
 import time
 import threading
 from agent import Agent, Task, clamp  # Import your existing code
 from tasks import total_tasks
 import numpy as np
+from analyzer import call_gemini
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'pissbabypoopoo'
 socketio = SocketIO(app, cors_allowed_origins="*")
+CORS(app, resources={r"/analyzeagent": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}},
+     supports_credentials=True)
+
+
+HISTORY_WINDOW = 10
 
 # Simulation state
 simulation_state = {
@@ -26,20 +33,43 @@ simulation_state = {
 TASKS = total_tasks
 
 def initialize_simulation(num_agents=100):
-    """Initialize agents and reset state"""
     simulation_state['agents'] = [Agent(i) for i in range(num_agents)]
     simulation_state['tasks'] = TASKS
     simulation_state['round'] = 0
     simulation_state['dropouts'] = []
     simulation_state['running'] = False
     
-    # Initialize tracking for each agent
     for agent in simulation_state['agents']:
         agent.total_tasks_attempted = 0
         agent.total_tasks_succeeded = 0
         agent.task_difficulty_sum = 0
         agent.reward_history = []
         agent.initial_rewards = agent.rewards
+
+        # NEW: rolling history buffer
+        agent.history = []
+
+def record_agent_history(agent, task, outcome):
+    entry = {
+        "round": simulation_state["round"],
+        "age": agent.age,
+        "task": task.name,
+        "difficulty": task.difficulty,
+        "success": outcome["success"],
+        "reward": outcome["reward"],
+        "loss": outcome["loss"],
+        "confidence": float(agent.identity.confidence),
+        "competence": float(agent.identity.competence),
+        "aspiration": float(agent.identity.aspiration),
+        "risk_tolerance": float(agent.identity.risk_tolerance),
+        "money": float(agent.rewards)
+    }
+
+    agent.history.append(entry)
+
+    # Keep only last N entries
+    if len(agent.history) > HISTORY_WINDOW:
+        agent.history.pop(0)
 
 def run_simulation_round():
     agents = simulation_state['agents']
@@ -53,8 +83,11 @@ def run_simulation_round():
             
         chosen_task = agent.choose_task(tasks)
         outcome = chosen_task.is_success(agent)
+
+        # NEW: record history
+        record_agent_history(agent, chosen_task, outcome)
         
-        # Track metrics
+        # Existing tracking
         agent.total_tasks_attempted += 1
         if outcome['success']:
             agent.total_tasks_succeeded += 1
@@ -154,6 +187,106 @@ def get_agent_data():
     
     return agent_list
 
+def summarize_agent_for_llm(agent):
+    """
+    Produces a compact, narrative-ready summary of an agent's recent life trajectory.
+    Intended for private LLM analysis (Gemini).
+    """
+
+    history = agent.history
+    if not history:
+        return {
+            "summary": "No meaningful history yet.",
+            "signals": {}
+        }
+
+    successes = sum(1 for h in history if h["success"])
+    failures = len(history) - successes
+
+    avg_difficulty = sum(h["difficulty"] for h in history) / len(history)
+    avg_confidence = sum(h["confidence"] for h in history) / len(history)
+    avg_competence = sum(h["competence"] for h in history) / len(history)
+
+    reward_delta = history[-1]["money"] - history[0]["money"]
+
+    repeated_tasks = {}
+    for h in history:
+        repeated_tasks[h["task"]] = repeated_tasks.get(h["task"], 0) + 1
+    most_common_task = max(repeated_tasks, key=repeated_tasks.get)
+
+    trajectory = (
+        "improving" if successes > failures
+        else "declining" if failures > successes
+        else "stagnant"
+    )
+
+    pressure = "high" if agent.wealth == "Low" else "moderate" if agent.wealth == "Middle" else "low"
+
+    summary_text = (
+        f"The agent comes from a {agent.wealth.lower()}-wealth background and has recently "
+        f"experienced a {trajectory} trajectory. Over the last {len(history)} periods, "
+        f"they succeeded {successes} times and failed {failures} times, most often engaging in "
+        f"'{most_common_task}', a task of roughly {avg_difficulty:.2f} difficulty. "
+        f"Their confidence averages around {avg_confidence:.2f}, while competence sits near "
+        f"{avg_competence:.2f}. Financially, their situation has "
+        f"{'improved' if reward_delta > 0 else 'worsened' if reward_delta < 0 else 'remained stable'}. "
+        f"The environment exerts {pressure} pressure on their decisions."
+    )
+
+    return {
+        "summary": summary_text,
+        "signals": {
+            "trajectory": trajectory,
+            "successes": successes,
+            "failures": failures,
+            "avg_difficulty": avg_difficulty,
+            "avg_confidence": avg_confidence,
+            "avg_competence": avg_competence,
+            "reward_delta": reward_delta,
+            "most_common_task": most_common_task,
+            "pressure": pressure,
+            "alive": agent.alive
+        }
+    }
+
+def build_prompt(summary_payload):
+    summary = summary_payload["summary"]
+    signals = summary_payload["signals"]
+
+    return f"""
+        You are analyzing a single simulated agent in a controlled social experiment.
+        This analysis is private and visible only to the user.
+
+        The following summary is complete and accurate. Do NOT introduce new events,
+        tasks, relationships, or numerical values beyond what is implied here.
+
+        AGENT SUMMARY:
+        {summary}
+
+        STRUCTURAL SIGNALS:
+        - Life trajectory: {signals['trajectory']}
+        - Dominant task pattern: {signals['most_common_task']}
+        - Environmental pressure level: {signals['pressure']}
+        - Current survival status: {"alive" if signals['alive'] else "no longer active"}
+
+        TASK:
+        Write a short interpretive reflection (4–6 sentences) explaining what may have
+        happened during this period to shape the agent’s behavior and mindset.
+
+        GUIDELINES:
+        - Focus on structural constraints, repeated exposure, adaptation, and psychological response
+        - Frame outcomes as plausible interpretations, not certainties
+        - Avoid statistics, equations, or technical language
+        - Do NOT invent specific life events (e.g., illness, family, education)
+        - Do NOT mention that this is a simulation or that the agent is artificial
+        - Maintain a neutral, analytical tone (not moralizing, not motivational)
+
+        The goal is to help the reader understand how patterns of opportunity,
+        pressure, and repetition may have influenced this individual’s trajectory.
+        """
+
+
+
 def calculate_stats():
     """Calculate statistics for the current round"""
     agents = simulation_state['agents']
@@ -180,9 +313,49 @@ def calculate_stats():
     return stats
 
 
+def find_agent_by_id(agent_id: int):
+    for a in simulation_state['agents']:
+        if a.id == agent_id:
+            return a
+    return None
+
+
+
 @app.route('/')
 def index():
-    return "Social Mobility Simulation Server Running"
+    return "Nature vs Nurture Simulation Server Running"
+
+
+@app.route("/analyzeagent", methods=["POST", "OPTIONS"])
+@cross_origin(origins=["http://localhost:3000","http://127.0.0.1:3000"],
+              supports_credentials=False,
+              methods=["POST","OPTIONS"],
+              allow_headers=["Content-Type","Authorization"])
+def analyze_agent():
+    if request.method == 'OPTIONS':
+        # Preflight request: tell browser it’s allowed
+        return ('', 204)
+    
+
+    payload = request.get_json(silent=True) or {}
+    agent_id = payload.get("agent_id")
+
+    if agent_id is None:
+        return jsonify({"error": "agent_id is required"}), 400
+
+    agent = find_agent_by_id(agent_id)
+    if agent is None:
+        return jsonify({"error": f"Agent {agent_id} not found"}), 404
+
+    summary = summarize_agent_for_llm(agent)
+    prompt = build_prompt(summary)
+
+    response = call_gemini(prompt)
+
+    return jsonify({
+        "agent_id": agent_id,
+        "analysis": response.text
+    })
 
 @socketio.on('connect')
 def handle_connect():

@@ -116,6 +116,7 @@ class Agent:
         self.last_task = None
         self.last_task_succeeded = False
         self.tasks_done = {}
+        self.history = []
 
     def available_tasks(self, tasks):
         available = []
